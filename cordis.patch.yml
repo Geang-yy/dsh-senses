@@ -1,0 +1,29 @@
+# dsh-senses —— 眼睛 / 嘴 / 耳朵，合成一个插件，每样可单独关
+- insert:
+    - id: dsh-senses
+      name: dsh-senses
+      config:
+        # ⚠️ 指向装了 edge-tts / sherpa-onnx / faster-whisper 的 Python
+        #    系统里的 `python` 可能是微软商店占位程序（跑了就 9009，还不报错）
+        python: C:\Users\Aogea\.dsh\voice-venv\Scripts\python.exe
+
+        # 三样感官的开关：false 就关掉那样，其它两样照常
+        enabled:
+          eye: true
+          mouth: true
+          ear: true
+
+        eye:
+          width: 1280      # 截多宽（超宽屏建议 1920）
+          keep: 10         # 只留最近几张
+
+        mouth:
+          voice: zh-CN-XiaoxiaoNeural
+          rate: "+4%"
+          maxChars: 180    # 超过只念开头
+          minChars: 8      # 短于这个不念
+
+        ear:
+          device: 3        # 麦克风设备号（别用"立体声混音"）
+          wake: 小鱼
+          autoStart: true

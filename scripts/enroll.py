@@ -21,20 +21,52 @@ from pathlib import Path
 import numpy as np
 
 
-def 找模型() -> Path:
-    """插件自带 campplus，没有就提示去哪下"""
-    候选 = [
-        Path(__file__).resolve().parent.parent / "models" / "speaker.onnx",
-        Path(__file__).resolve().parent.parent.parent / "models" / "speaker" / "campplus.onnx",
-    ]
+模型地址 = "https://github.com/Geang-yy/dsh-senses/releases/latest/download/speaker.onnx"
+
+
+def 找模型(自动下载=True) -> Path:
+    """声纹模型不放在仓库里（27MB），从 Release 拿。
+
+    为什么要分开：模型是死的，代码是活的。每次改代码都要背 27MB 的历史，
+    用户 clone 也慢。所以代码进仓库，模型走 Release。
+    """
+    目标 = Path(__file__).resolve().parent.parent / "models" / "speaker.onnx"
+    if 目标.exists():
+        return 目标
+
+    候选 = [Path(__file__).resolve().parent.parent.parent / "models" / "speaker" / "campplus.onnx"]
     for p in 候选:
         if p.exists():
-            return p
-    raise SystemExit(
-        "找不到声纹模型 speaker.onnx。\n"
-        "下载 campplus（约 27MB）放到 models/speaker.onnx：\n"
-        "  https://github.com/k2-fsa/sherpa-onnx/releases/tag/speaker-recongition-models\n"
-    )
+            import shutil
+
+            目标.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(p, 目标)
+            return 目标
+
+    if not 自动下载:
+        raise SystemExit(f"找不到 {目标}")
+
+    print("没有声纹模型，正在下载（约 27MB，只有第一次）…", flush=True)
+    目标.parent.mkdir(parents=True, exist_ok=True)
+    临时 = 目标.with_suffix(".part")
+    try:
+        import urllib.request
+
+        def 进度(块, 块大小, 总大小):
+            if 总大小 > 0:
+                done = min(100, int(块 * 块大小 * 100 / 总大小))
+                print(f"\r  下载中 {done}%", end="", flush=True)
+
+        urllib.request.urlretrieve(模型地址, 临时, 进度)
+        print("\r  下载完成      ")
+        临时.replace(目标)
+    except Exception as e:
+        临时.unlink(missing_ok=True)
+        raise SystemExit(
+            f"下载失败：{e}\n"
+            f"请手动下载后放到 {目标}：\n  {模型地址}\n"
+        )
+    return 目标
 
 
 def 主函数():

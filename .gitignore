@@ -20,3 +20,6 @@ node_modules/
 # 声纹样本——是某个人的声音，不能进公开仓库
 models/owner.npy
 models/owner-*.npy
+
+# 声纹模型走 Release（27MB），不进仓库
+models/speaker.onnx

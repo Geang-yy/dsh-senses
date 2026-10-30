@@ -17,3 +17,6 @@ Thumbs.db
 
 # 依赖
 node_modules/
+# 声纹样本——是某个人的声音，不能进公开仓库
+models/owner.npy
+models/owner-*.npy

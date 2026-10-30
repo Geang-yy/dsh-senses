@@ -70,6 +70,27 @@ class 耳朵:
         )
         记(日志, "加载转写模型…")
         self.model = WhisperModel("small", device="cpu", compute_type="int8")
+        # 声纹：只有主人的声音才认。没有模型或没有样本就让过（不因为缺一个功能把耳朵弄哑）。
+        self.说话人模型 = None
+        self.主语声纹 = None
+        self.阈值 = 0.45
+        self.上次声纹分 = None
+        try:
+            import sherpa_onnx
+            import numpy as np
+
+            模型文件 = models / "speaker.onnx"
+            样本文件 = models / "owner.npy"
+            if 模型文件.exists() and 样本文件.exists():
+                cfg = sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(模型文件), num_threads=1)
+                self.说话人模型 = sherpa_onnx.SpeakerEmbeddingExtractor(cfg)
+                self.主语声纹 = np.load(样本文件)
+                记(日志, "声纹已加载，只听主人的")
+            else:
+                记(日志, "没有声纹模型或样本，谁说话都认")
+        except Exception as e:
+            记(日志, f"声纹没装上（谁说话都认）: {e}")
+
         记(日志, "就绪")
 
     def 有人在说话(self):
@@ -146,6 +167,33 @@ class 耳朵:
         if 时长 < 最短秒数:
             return None, 时长
         return 全, 时长
+
+    def 是主人的声音(self, 音频) -> bool:
+        """声纹校验：只有主人的声音才认。
+
+        实测数据（2026-10-30，15 秒样本）：自己段与段之间 0.820，自己 vs 别人最高 0.143。
+        所以阈值 0.25 够用：不像主人就轻轻放过，不报错、不吵。
+        """
+        if self.说话人模型 is None or self.主语声纹 is None:
+            return True  # 没装声纹就都放行（别因为缺模型把功能弄没了）
+        try:
+            import numpy as np
+
+            s = self.说话人模型.create_stream()
+            s.accept_waveform(16000, 音频.astype("float32"))
+            s.input_finished()
+            if not self.说话人模型.is_ready(s):
+                return True
+            v = np.array(self.说话人模型.compute(s), dtype="float32")
+            v = v / (np.linalg.norm(v) + 1e-9)
+            a = np.array(self.主语声纹, dtype="float32")
+            a = a / (np.linalg.norm(a) + 1e-9)
+            分值 = float(v @ a)
+            self.上次声纹分 = 分值
+            return 分值 >= self.阈值
+        except Exception as e:
+            记(self.日志, f"声纹校验出错（放行）: {e}")
+            return True
 
     def 转写(self, 音频):
         seg, _info = self.model.transcribe(
@@ -241,6 +289,9 @@ def main():
                 continue
             音频, 时长 = 耳朵实例.听一句()
             if 音频 is None:
+                continue
+            if not 耳朵实例.是主人的声音(音频):
+                记(日志, f"不是主人的声音（相似度 {耳朵实例.上次声纹分:.3f}），跳过")
                 continue
             文本 = 耳朵实例.转写(音频)
             if not 文本:

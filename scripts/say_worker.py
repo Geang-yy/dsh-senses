@@ -82,6 +82,17 @@ def 说(text, voice="zh-CN-XiaoxiaoNeural", rate="+4%", pitch="+0Hz", volume="+0
         pass
 
 
+def _在录音():
+    """有人在录样本时，嘴必须闭着——否则录到的全是我自己的声音（2026-10-30 栽了三次）。"""
+    try:
+        from pathlib import Path as _P
+        import os as _os
+        锁 = _P(_os.path.expanduser("~")) / ".dsh" / "enroll.lock"
+        return 锁.exists()
+    except Exception:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--text", required=True)
@@ -91,6 +102,10 @@ def main():
     ap.add_argument("--volume", default="+0%")
     ap.add_argument("--dry-run", action="store_true", help="只打印会念什么，不出声")
     a = ap.parse_args()
+
+    if _在录音():
+        print("正在录样本，嘴闭着", file=sys.stderr)
+        return 0
 
     text = 口语化(a.text)
     if not text:
